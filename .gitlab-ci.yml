@@ -4,9 +4,9 @@ pages:
   stage: deploy
   script:
     - mkdir -p public
-    - cp -r karlsplatz_ar data thirdparty public/
+    - cp -r lambert data thirdparty public/
     # Startseite leitet direkt auf die AR-App weiter
-    - echo '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=karlsplatz_ar/">' > public/index.html
+    - echo '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=lambert/">' > public/index.html
   artifacts:
     paths:
       - public
