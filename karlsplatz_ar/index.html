@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="description" content="Congratulations!">
+  <meta name="author" content="Lukas">
+  <title>Digitaler Storch für Josephine</title>
+
+  <script>
+    (function () {
+      var originalWarn = console.warn;
+
+      console.warn = function () {
+        if (
+          arguments.length > 0 &&
+          String(arguments[0]).indexOf('useLegacyLights has been deprecated') !== -1
+        ) {
+          return;
+        }
+
+        originalWarn.apply(console, arguments);
+      };
+    }());
+  </script>
+  <script src="../thirdparty/aframe.min.js"></script>
+  <script>
+    (function () {
+      var three = window.THREE || (window.AFRAME && window.AFRAME.THREE);
+
+      if (!three) {
+        return;
+      }
+
+      window.THREE = three;
+      three.MathUtils = three.MathUtils || {};
+
+      if (!three.MathUtils.degToRad) {
+        three.MathUtils.degToRad = function (degrees) {
+          return degrees * Math.PI / 180;
+        };
+      }
+
+      if (!three.MathUtils.radToDeg) {
+        three.MathUtils.radToDeg = function (radians) {
+          return radians * 180 / Math.PI;
+        };
+      }
+    }());
+  </script>
+  <script src="../thirdparty/ar-threex-location-only.js"></script>
+  <script src="../thirdparty/aframe-ar.js"></script>
+  <script src="./app.js?v=20261008-1"></script>
+
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .ar-status {
+      position: fixed;
+      left: max(12px, env(safe-area-inset-left));
+      right: max(12px, env(safe-area-inset-right));
+      top: max(12px, env(safe-area-inset-top));
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 420px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      color: #fff;
+      background: rgba(15, 18, 22, 0.72);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      font-size: 14px;
+      line-height: 1.35;
+      pointer-events: none;
+    }
+
+    .ar-status__dot {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 9px;
+      border-radius: 999px;
+      background: #f0c24b;
+      box-shadow: 0 0 0 4px rgba(240, 194, 75, 0.18);
+    }
+
+    .ar-status.is-ready .ar-status__dot {
+      background: #62d47d;
+      box-shadow: 0 0 0 4px rgba(98, 212, 125, 0.18);
+    }
+
+    .ar-status.is-error .ar-status__dot {
+      background: #ff6b6b;
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.18);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ar-status" class="ar-status" aria-live="polite">
+    <span class="ar-status__dot" aria-hidden="true"></span>
+    <span data-ar-status-text>AR wird gestartet...</span>
+  </div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="antialias: true; alpha: true; colorManagement: true"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+  >
+    <a-assets timeout="10000">
+      <a-asset-item id="storch_gltf" src="../data/stork_gltf_mobile/scene.gltf"></a-asset-item>
+      <img id="simlabLogo" src="../data/logo_simlab.png" alt="Simlab">
+    </a-assets>
+
+    <a-camera
+      id="ar-camera"
+      url-gps-simulator
+      gps-new-camera="gpsMinDistance: 5; positionMinAccuracy: 50; gpsTimeInterval: 5000; initialPositionAsOrigin: true;"
+      orientation-smoothing="factor: 0.25"
+      look-controls="enabled: true"
+      wasd-controls="enabled: false"
+    ></a-camera>
+  <!-- 48.210419, 16.333352 GST 48.210317, 16.333923-->
+    <a-entity
+      id="location-anchor"
+      deferred-gps-new-entity-place="latitude: 48.197236; longitude: 16.370190;"
+    >
+      <a-entity id="location-content" position="0 0 -8" face-camera-y>
+        <a-text
+          value="Willkommen Laurin!"
+          color="#ff80c0"
+          align="center"
+          anchor="center"
+          baseline="center"
+          width="14"
+          position="0 5.5 0"
+        ></a-text>
+
+        <a-text
+          value="Liebe Tini, lieber Flo!&#10;Wir gratulieren Euch recht herzlich!"
+          color="#f4ca38"
+          align="center"
+          anchor="center"
+          baseline="center"
+          width="12.4"
+          wrap-count="32"
+          position="0 3.45 0"
+        ></a-text>
+
+        <a-image
+          src="#simlabLogo"
+          width="3.76"
+          height="1.18"
+          position="0 1.05 0"
+          material="transparent: true; opacity: 0.92; alphaTest: 0.5"
+        ></a-image>
+
+        <a-entity
+          id="stork"
+          gltf-model="#storch_gltf"
+          position="-2.8 6.8 -2.5"
+          rotation="0 180 0"
+          scale="4.5 4.5 4.5"
+          gltf-animation-player="clip: Take 001; loop: repeat; repetitions: 0; timeScale: 1;"
+          animation__float="property: position; to: -2.8 5.35 -2.5; dir: alternate; dur: 2600; easing: easeInOutSine; loop: true"
+          animation__turn="property: rotation; to: 0 205 0; dir: alternate; dur: 4200; easing: easeInOutSine; loop: true"
+        ></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <a-light type="ambient" color="#ffffff" intensity="0.72"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="0.85" position="1 3 2"></a-light>
+  </a-scene>
+</body>
+</html>
