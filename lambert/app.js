@@ -2,8 +2,8 @@
   'use strict';
 
   var TARGET = {
-    latitude: 48.188049061319035,
-    longitude: 16.270277885228296
+    latitude: 48.1880825771,
+    longitude: 16.270298263081887
   };
 
   function getQueryValue(params, names) {
