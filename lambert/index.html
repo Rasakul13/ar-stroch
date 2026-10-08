@@ -50,7 +50,7 @@
   </script>
   <script src="../thirdparty/ar-threex-location-only.js"></script>
   <script src="../thirdparty/aframe-ar.js"></script>
-  <script src="./app.js?v=20261008-1"></script>
+  <script src="./app.js?v=20261008-2"></script>
 
   <style>
     html,
@@ -104,6 +104,64 @@
       background: #ff6b6b;
       box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.18);
     }
+
+    .motion-permission {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+      background: rgba(0, 0, 0, 0.55);
+    }
+
+    .motion-permission[hidden] {
+      display: none;
+    }
+
+    .motion-permission__card {
+      max-width: 360px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(15, 18, 22, 0.88);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      text-align: center;
+    }
+
+    .motion-permission__title {
+      margin: 0 0 8px;
+      color: #f4ca38;
+      font-size: 20px;
+    }
+
+    .motion-permission__text {
+      margin: 0 0 18px;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .motion-permission__button {
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: 8px;
+      color: #15181c;
+      background: #f4ca38;
+      font: inherit;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .motion-permission__button:disabled {
+      opacity: 0.6;
+    }
   </style>
 </head>
 
@@ -113,9 +171,20 @@
     <span data-ar-status-text>AR wird gestartet...</span>
   </div>
 
+  <div id="motion-permission" class="motion-permission" hidden>
+    <div class="motion-permission__card" role="dialog" aria-modal="true" aria-labelledby="motion-permission-title">
+      <h1 id="motion-permission-title" class="motion-permission__title">Bewegungssensoren freigeben</h1>
+      <p class="motion-permission__text" data-motion-permission-text>
+        Damit der Storch beim Umsehen an seinem Platz bleibt, braucht die Seite Zugriff auf die Bewegungssensoren.
+      </p>
+      <button type="button" class="motion-permission__button" data-motion-permission-button>AR starten</button>
+    </div>
+  </div>
+
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
     renderer="antialias: true; alpha: true; colorManagement: true"
     arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
   >
@@ -129,6 +198,7 @@
       url-gps-simulator
       gps-new-camera="gpsMinDistance: 5; positionMinAccuracy: 50; gpsTimeInterval: 5000; initialPositionAsOrigin: true;"
       orientation-smoothing="factor: 0.25"
+      ios-orientation
       look-controls="enabled: true"
       wasd-controls="enabled: false"
     ></a-camera>
@@ -140,7 +210,7 @@
       <a-entity id="location-content" position="0 0 -8" face-camera-y>
         <a-text
           value="Willkommen Laurin!"
-          color="#ff80c0"
+          color="#00BEFF"
           align="center"
           anchor="center"
           baseline="center"
@@ -149,8 +219,8 @@
         ></a-text>
 
         <a-text
-          value="Liebe Tini, lieber Flo!&#10;Wir gratulieren Euch recht herzlich!"
-          color="#f4ca38"
+          value="Liebe Tini, lieber Flo, lieber Linus!&#10;Wir gratulieren Euch recht herzlich!"
+          color="#000000"
           align="center"
           anchor="center"
           baseline="center"
@@ -158,14 +228,6 @@
           wrap-count="32"
           position="0 3.45 0"
         ></a-text>
-
-        <a-image
-          src="#simlabLogo"
-          width="3.76"
-          height="1.18"
-          position="0 1.05 0"
-          material="transparent: true; opacity: 0.92; alphaTest: 0.5"
-        ></a-image>
 
         <a-entity
           id="stork"

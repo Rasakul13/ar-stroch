@@ -234,6 +234,171 @@
     }
   });
 
+  patchGpsNewCamera();
+
+  // iOS gibt die Bewegungssensoren nur nach einem Tippen frei und liefert alpha
+  // relativ zur Startrichtung statt zu Norden. AR.js behandelt beides nicht.
+  AFRAME.registerComponent('ios-orientation', {
+    schema: {
+      calibrationFactor: { type: 'number', default: 0.02 }
+    },
+
+    init: function () {
+      var self = this;
+
+      this.controls = null;
+      this.headingOffset = null;
+      this.listening = false;
+      this.retryTimer = null;
+      this.overlay = document.getElementById('motion-permission');
+      this.overlayText = this.overlay && this.overlay.querySelector('[data-motion-permission-text]');
+      this.overlayButton = this.overlay && this.overlay.querySelector('[data-motion-permission-button]');
+      this.bindControls = this.bindControls.bind(this);
+      this.onButtonClick = this.onButtonClick.bind(this);
+      this.onPermissionResult = this.onPermissionResult.bind(this);
+      this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
+      this.onScreenOrientationChange = this.onScreenOrientationChange.bind(this);
+
+      if (!needsOrientationPermission()) {
+        return;
+      }
+
+      if (this.overlayButton) {
+        this.overlayButton.addEventListener('click', this.onButtonClick);
+      }
+
+      // Ohne Tippen klappt das nur, wenn die Freigabe in dieser Sitzung schon erteilt wurde.
+      window.DeviceOrientationEvent.requestPermission().then(this.onPermissionResult, function () {
+        self.showOverlay();
+      });
+    },
+
+    onButtonClick: function () {
+      var self = this;
+
+      this.overlayButton.disabled = true;
+      window.DeviceOrientationEvent.requestPermission().then(this.onPermissionResult, function (error) {
+        self.showOverlay('Bewegungssensoren konnten nicht freigegeben werden: ' + errorMessageFrom(error));
+      });
+    },
+
+    onPermissionResult: function (state) {
+      if (state !== 'granted') {
+        this.showOverlay(
+          'Der Zugriff auf die Bewegungssensoren wurde abgelehnt. Bitte die Seite neu laden und den Zugriff erlauben. ' +
+          'Kommt keine Abfrage mehr, den Browser beenden und die Seite erneut aufrufen.'
+        );
+        return;
+      }
+
+      if (this.overlay) {
+        this.overlay.hidden = true;
+      }
+
+      this.startListening();
+    },
+
+    showOverlay: function (message) {
+      if (!this.overlay) {
+        return;
+      }
+
+      if (message && this.overlayText) {
+        this.overlayText.textContent = message;
+      }
+
+      if (this.overlayButton) {
+        this.overlayButton.disabled = false;
+        this.overlayButton.textContent = message ? 'Erneut versuchen' : 'AR starten';
+      }
+
+      this.overlay.hidden = false;
+    },
+
+    startListening: function () {
+      if (this.listening) {
+        return;
+      }
+
+      this.listening = true;
+      window.addEventListener('deviceorientation', this.onDeviceOrientation);
+      window.addEventListener('orientationchange', this.onScreenOrientationChange);
+      this.bindControls();
+    },
+
+    bindControls: function () {
+      var component = this.el.components['arjs-device-orientation-controls'];
+
+      if (!component || !component._orientationControls) {
+        this.retryTimer = window.setTimeout(this.bindControls, 100);
+        return;
+      }
+
+      this.controls = component._orientationControls;
+      this.onScreenOrientationChange();
+    },
+
+    onScreenOrientationChange: function () {
+      if (this.controls) {
+        this.controls.screenOrientation = window.orientation || 0;
+      }
+    },
+
+    onDeviceOrientation: function (event) {
+      if (!this.controls) {
+        return;
+      }
+
+      // AR.js hat sich beim Start ohne Freigabe nicht fuer die Sensordaten angemeldet.
+      this.controls.deviceOrientation = event;
+      this.updateHeadingOffset(event);
+    },
+
+    updateHeadingOffset: function (event) {
+      var heading = event.webkitCompassHeading;
+      var accuracy = event.webkitCompassAccuracy;
+      var offset;
+
+      // Nur im Hochformat und leicht nach vorne geneigt zeigt der Kompass sicher
+      // in die Blickrichtung der Kamera.
+      if (
+        !Number.isFinite(heading) ||
+        !(accuracy >= 0 && accuracy < 50) ||
+        !Number.isFinite(event.alpha) ||
+        !(event.beta >= 30 && event.beta <= 90) ||
+        !(Math.abs(event.gamma) <= 30) ||
+        (window.orientation || 0) !== 0
+      ) {
+        return;
+      }
+
+      offset = normalizeDegrees(compassHeading(event.alpha, event.beta, event.gamma) - heading);
+
+      if (this.headingOffset === null) {
+        this.headingOffset = offset;
+      } else {
+        this.headingOffset = normalizeDegrees(
+          this.headingOffset + shortestAngle(offset - this.headingOffset) * this.data.calibrationFactor
+        );
+      }
+
+      this.controls.alphaOffset = degToRad(this.headingOffset);
+    },
+
+    remove: function () {
+      if (this.retryTimer) {
+        window.clearTimeout(this.retryTimer);
+      }
+
+      if (this.overlayButton) {
+        this.overlayButton.removeEventListener('click', this.onButtonClick);
+      }
+
+      window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+      window.removeEventListener('orientationchange', this.onScreenOrientationChange);
+    }
+  });
+
   AFRAME.registerComponent('deferred-gps-new-entity-place', {
     schema: {
       longitude: { type: 'number', default: 0 },
@@ -412,6 +577,59 @@
 
   function degToRad(degrees) {
     return degrees * Math.PI / 180;
+  }
+
+  function normalizeDegrees(degrees) {
+    return ((degrees % 360) + 360) % 360;
+  }
+
+  function shortestAngle(degrees) {
+    return normalizeDegrees(degrees + 180) - 180;
+  }
+
+  // Blickrichtung der Rueckkamera im Uhrzeigersinn ab Norden (Formel aus der
+  // W3C-Spezifikation zu DeviceOrientation).
+  function compassHeading(alpha, beta, gamma) {
+    var a = degToRad(alpha);
+    var b = degToRad(beta);
+    var g = degToRad(gamma);
+    var x = -Math.cos(a) * Math.sin(g) - Math.sin(a) * Math.sin(b) * Math.cos(g);
+    var y = -Math.sin(a) * Math.sin(g) + Math.cos(a) * Math.sin(b) * Math.cos(g);
+
+    return normalizeDegrees(Math.atan2(x, y) * 180 / Math.PI);
+  }
+
+  function isIosDevice() {
+    var userAgent = navigator.userAgent || '';
+
+    // iPads melden sich als Mac, haben aber einen Touchscreen.
+    return /iPhone|iPad|iPod/.test(userAgent) ||
+      (/Macintosh/.test(userAgent) && navigator.maxTouchPoints > 1);
+  }
+
+  function needsOrientationPermission() {
+    return isIosDevice() &&
+      typeof window.DeviceOrientationEvent !== 'undefined' &&
+      typeof window.DeviceOrientationEvent.requestPermission === 'function';
+  }
+
+  function patchGpsNewCamera() {
+    var gpsNewCamera = AFRAME.components['gps-new-camera'];
+    var proto = gpsNewCamera && gpsNewCamera.Component && gpsNewCamera.Component.prototype;
+    var isMobile;
+
+    if (!proto) {
+      return;
+    }
+
+    isMobile = proto._isMobile;
+    proto._isMobile = function () {
+      return isIosDevice() || (typeof isMobile === 'function' && isMobile.call(this));
+    };
+
+    // Die AR.js-Variante greift nur in Safari und zeigt einen englischen Hinweis;
+    // die Freigabe uebernimmt stattdessen ios-orientation.
+    proto._setupSafariOrientationPermissions = function () {};
   }
 
   function haversineMeters(from, to) {
