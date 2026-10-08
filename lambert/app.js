@@ -1,10 +1,9 @@
 (function () {
   'use strict';
 
-  //<!-- 48.210419, 16.333352 GST 48.210317, 16.333923 -->
   var TARGET = {
-    latitude: 48.19723595366788,
-    longitude: 16.370189972865745
+    latitude: 48.188049061319035,
+    longitude: 16.270277885228296
   };
 
   function getQueryValue(params, names) {
